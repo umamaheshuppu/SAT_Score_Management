@@ -1,71 +1,95 @@
-import sqlite3
 import json
 
-# Connect to SQLite database (or any other database of your choice)
-conn = sqlite3.connect('my_database.db')
-cursor = conn.cursor()
+# In-memory storage for SAT results
+sat_data = {}
 
-# Create a table to store the data
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS player_data (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        score INTEGER NOT NULL
-    )
-''')
-conn.commit()
+def insert_data():
+    print("Insert Data:")
+    name = input("Name: ")
+    address = input("Address: ")
+    city = input("City: ")
+    country = input("Country: ")
+    pincode = input("Pincode: ")
+    sat_score = float(input("SAT Score: "))
 
-def insert_data(name, score):
-    cursor.execute('INSERT INTO player_data (name, score) VALUES (?, ?)', (name, score))
-    conn.commit()
+    passed = "Pass" if sat_score > 30 else "Fail"
+
+    sat_data[name] = {
+        'Name': name,
+        'Address': address,
+        'City': city,
+        'Country': country,
+        'Pincode': pincode,
+        'SAT Score': sat_score,
+        'Passed': passed
+    }
     print("Data inserted successfully.")
 
 def view_all_data():
-    cursor.execute('SELECT * FROM player_data')
-    data = cursor.fetchall()
     print("All Data:")
-    for row in data:
-        print(row)
+    for data in sat_data.values():
+        print(json.dumps(data, indent=2))
 
 def get_rank(name):
-    cursor.execute('SELECT id FROM player_data WHERE name = ?', (name,))
-    result = cursor.fetchone()
-    if result:
-        cursor.execute('SELECT COUNT(*) FROM player_data WHERE score > (SELECT score FROM player_data WHERE name = ?)', (name,))
-        rank = cursor.fetchone()[0] + 1
+    sorted_data = sorted(sat_data.values(), key=lambda x: x['SAT Score'], reverse=True)
+    rank = next((i + 1 for i, data in enumerate(sorted_data) if data['Name'] == name), None)
+    
+    if rank:
         print(f"{name}'s Rank: {rank}")
     else:
         print(f"No record found for {name}.")
 
-def update_score(name, new_score):
-    cursor.execute('UPDATE player_data SET score = ? WHERE name = ?', (new_score, name))
-    conn.commit()
-    print(f"Score updated for {name}.")
+def update_score(name):
+    if name in sat_data:
+        new_score = float(input(f"Enter new SAT Score for {name}: "))
+        sat_data[name]['SAT Score'] = new_score
+        sat_data[name]['Passed'] = "Pass" if new_score > 30 else "Fail"
+        print(f"SAT Score updated for {name}.")
+    else:
+        print(f"No record found for {name}.")
 
 def delete_record(name):
-    cursor.execute('DELETE FROM player_data WHERE name = ?', (name,))
-    conn.commit()
-    print(f"Record for {name} deleted.")
+    if name in sat_data:
+        del sat_data[name]
+        print(f"Record for {name} deleted.")
+    else:
+        print(f"No record found for {name}.")
 
 def export_to_json():
-    cursor.execute('SELECT * FROM player_data')
-    data = cursor.fetchall()
-    json_data = [{'id': row[0], 'name': row[1], 'score': row[2]} for row in data]
-    
-    with open('player_data.json', 'w') as json_file:
-        json.dump(json_data, json_file, indent=2)
+    with open('sat_results.json', 'w') as json_file:
+        json.dump(list(sat_data.values()), json_file, indent=2)
     print("Data exported to JSON successfully.")
 
-# Example usage
-insert_data("John", 150)
-insert_data("Alice", 200)
-view_all_data()
-get_rank("John")
-update_score("Alice", 250)
-view_all_data()
-delete_record("John")
-view_all_data()
-export_to_json()
+# Main menu loop
+while True:
+    print("\nMenu:")
+    print("1. Insert Data")
+    print("2. View All Data")
+    print("3. Get Rank")
+    print("4. Update Score")
+    print("5. Delete One Record")
+    print("6. Export Data to JSON")
+    print("7. Exit")
 
-# Close the database connection
-conn.close()
+    choice = input("Enter your choice (1-7): ")
+
+    if choice == '1':
+        insert_data()
+    elif choice == '2':
+        view_all_data()
+    elif choice == '3':
+        name = input("Enter name to get rank: ")
+        get_rank(name)
+    elif choice == '4':
+        name = input("Enter name to update score: ")
+        update_score(name)
+    elif choice == '5':
+        name = input("Enter name to delete record: ")
+        delete_record(name)
+    elif choice == '6':
+        export_to_json()
+    elif choice == '7':
+        print("Exiting the program. Goodbye!")
+        break
+    else:
+        print("Invalid choice. Please enter a number between 1 and 7.")
